@@ -1,339 +1,48 @@
----
-description: 이 실습을 시작하기 전에, 실습 소개를 읽어 주시기 바랍니다.
----
+# Couchbase Server Administration
 
-# 설치 사전 준비
+### 실습 목표
 
-### PuTTY 설치 및 첫 번째 VM 연결 (Windows 사용하실 경우만 해당)
+본 실습에서는 Couchbase Server를 소개하며, 단일 노드 설치 및 웹 UI를 중심으로 진행합니다. 향후 실습에서는 Couchbase의 관리 및 구성 요소를 보다 심층적으로 다룰 예정이므로, 본 실습의 내용은 Couchbase에 대한 첫 단계의 이해를 위한 것으로 보시면 됩니다.
 
-{% hint style="info" %}
-\*참고: Mac을 사용 중이라면, 아래의 “Terminal/iTerm2를 통한 첫 번째 VM 연결 (Mac 전용)” 부분으로 이동하세요.\
-Amazon VM에 연결/SSH 하기 위해 기본 제공되는 Terminal 또는 iTerm2(기본 Terminal을 대체하는 더 많은 기능을 제공하는 앱)를 사용할 수 있으므로, Windows 전용 앱인 PuTTY는 필요하지 않습니다.
-{% endhint %}
+본 실습의 주요 목적은 운영 환경 수준의 클러스터 구축이 아니라, 다양한 개념과 기능을 설명하고 시연할 수 있는 프로토타입 실습 환경을 마련하는 데 있습니다.
 
-Windows를 사용 중이라면 무료 텔넷/SSH 클라이언트인 PuTTY 설치를 강력히 권장합니다.\
-PuTTY를 사용하면 Windows에서 가벼운 클라이언트를 통해 Amazon VM에 접속할 수 있으며, 동일한 VM에 여러 개의 명령줄 세션을 열 수 있습니다.
+예를 들어, 본 실습에서는 Linux 방화벽을 단순히 비활성화하며, Couchbase 데이터 파일과 인덱스 파일을 별도의 장치/볼륨에 분리 저장하는 모범 사례를 따르지 않습니다. 또한 본 실습에 사용되는 Amazon VM은 t2.large 인스턴스로, 2코어와 8GB 메모리만 제공합니다.
 
-PuTTY 다운로드 링크: https://www.chiark.greenend.org.uk/\~sgtatham/putty/latest.html
+이러한 VM은 Couchbase 클러스터에서 기대할 수 있는 실제 성능을 반영하지 않습니다. 즉, 소형 VM에서 초당 약 15,000 IOPS 성능이 관찰될 수 있으나, 더 큰 Amazon VM 환경에서는 초당 100,000 IOPS, 물리적 데이터 센터 환경에서는 초당 200,000 IOPS 이상의 성능을 확인할 수 있습니다.
 
-`Windows (Intel x86)` 항목에서 `putty.exe`라는 이름의 파일을 찾으세요.
+본 실습 또는 향후 실습과 관련된 의견이나 수정 사항은 Couchbase Learning Services (cls@couchbase.com) 으로 보내주시기 바랍니다.
 
-<figure><img src="../.gitbook/assets/image (1).png" alt=""><figcaption></figcaption></figure>
-
-PuTTY는 별도의 설치 과정이 필요하지 않습니다. 다운로드한 .exe 파일을 바로 실행하면 됩니다.
-
-PuTTY를 실행한 후, `첫 번째 Amazon VM`의 공용 IP 주소를 PuTTY에 입력하세요. 이 IP 주소는 본 실습과 함께 강사가 제공한 Cluster-IPs 스프레드시트에서 확인할 수 있습니다. 연결 유형은 SSH, 포트는 22로 설정합니다.
-
-강사가 제공한 `첫 번째 Amazon VM`의 공용 호스트 이름을 PuTTY에 입력한 뒤, SSH 항목 옆의 + 기호를 클릭하여 옵션을 확장하고, 마지막으로 Auth를 선택하세요.
-
-<figure><img src="../.gitbook/assets/image (1) (1).png" alt=""><figcaption></figcaption></figure>
+예상 소요 시간: 약 1시간
 
 
 
-인증을 위해 개인 키 파일(Private key file) 을 선택하려면 `Browse`를 클릭하세요.\
+### Couchbase 서버 설치 소개
 
+아래는 Couchbase Server의 설치 및 관리에 대해 더 배우고 싶을 때, 여유 시간에 직접 살펴볼 수 있는 링크들입니다.\
+이 가이드들의 핵심적이고 중요한 부분은 이번 수업에서 진행할 축약된 실습으로 정리되어 있습니다.\
+그러나 Couchbase 관리에 대해 심도 있게 학습하려면 반드시 이 문서들을 읽고 시간을 투자해야 합니다.
 
-<figure><img src="../.gitbook/assets/image (2).png" alt=""><figcaption></figcaption></figure>
+• Couchbase 공식 문서 전체 (HTML 형식):\
+https://docs.couchbase.com/home/index.html
 
-
-
-강사가 제공한 “Amazon-Private-Key.ppk” 파일을 선택하세요.
-
-왼쪽 창에서 Colors를 클릭한 후, Select a Colour to adjust에서 Default Background를 선택하고 Blue RGB 값을 90으로 변경하세요.
-
-<figure><img src="../.gitbook/assets/image (3).png" alt=""><figcaption></figcaption></figure>
-
-
-
-다음으로, Session을 클릭하고 세션 이름을 `CouchbaseXX`로 입력하여 저장하세요. 여기서 `XX`는 호스트명에서 가져온 노드 번호입니다. 그런 다음 Save를 클릭합니다.\
-예를 들어, 여기서는 세션이 `Couchbase01`로 저장되고 있습니다:
-
-<figure><img src="../.gitbook/assets/image (4).png" alt=""><figcaption></figcaption></figure>
-
-
-
-이제 `Couchbase01`을 선택(하이라이트)하고 Open을 클릭하여 이 VM에 연결합니다:
-
-<figure><img src="../.gitbook/assets/image (5).png" alt=""><figcaption></figcaption></figure>
-
-
-
-성공적으로 연결하기 전에 서버의 rsa2 키에 대한 메시지가 나타나면 `Yes`를 클릭해야 합니다.
-
-<figure><img src="../.gitbook/assets/image (6).png" alt=""><figcaption></figcaption></figure>
-
+• Couchbase Server 7.X 공식 관리자 가이드\
+(좌측 상단의 파란색 드롭다운에서 “Couchbase Server”를 선택해 다양한 주제를 탐색할 수 있습니다):\
+https://docs.couchbase.com/server/current/getting-started/start-here.html\
 \
-로그인에 사용할 사용자 이름은 다음과 같습니다:
-
-Login as: ec2-user
-
-<figure><img src="../.gitbook/assets/image (7).png" alt=""><figcaption></figcaption></figure>
-
-
-
-
-
-### 맥에서 Terminal/iTerm2를 통해 첫 번째 VM에 접속하기: <a href="#connecting_to_the_1st_vm_via_terminal_iterm2_mac_only" id="connecting_to_the_1st_vm_via_terminal_iterm2_mac_only"></a>
-
-Mac Terminal을 통해 로그인하는 일반적인 방법은 다음과 같습니다.
-
-원하는 터미널 앱을 열고 아래 명령어를 입력합니다.
-
-.pem 키 파일의 권한을 다음과 같이 변경합니다:
-
-```bash
-chmod 400 Amazon-Private-Key2.pem
-```
-
-아래 명령어로 VM에 SSH 접속을 합니다:
-
-```bash
-ssh -i Amazon-Private-Key2.pem ec2-user@<1번 VM의 public hostname>
-```
-
-아래와 같은 메시지가 나오면 Yes라고 입력합니다:
-
-`The authenticity of host 'ec2-198-51-100-x.compute-1.amazonaws.com (10.254.142.33)'`\
-`can't be established.`\
-`RSA key fingerprint is 1f:51:ae:28:bf:89:e9:d8:1f:25:5d:37:2d:7d:b8:ca:9f:f5:f1:6f.`\
-`Are you sure you want to continue connecting (yes/no)? yes`
-
-Mac에서 로그인하는 방법에 대한 공식 가이드는 다음 링크에서 확인할 수 있습니다:
-
-[http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/)
-
+• Couchbase YouTube 채널 – 최근 컨퍼런스와 웨비나 영상 다수:\
+https://www.youtube.com/c/CouchbaseServer/\
 \
-또한 Mac에서는 화면 색상 설정도 가능합니다. 아래는 MacBook에서 색상 변경이 적용된 스크린샷 예시입니다.
-
-<figure><img src="../.gitbook/assets/image.png" alt=""><figcaption></figcaption></figure>
-
-
-
-### 첫 번째 Amazon 서버 살펴보기:
-
-방금 실행한 Couchbase 서버 VM의 사양은 다음과 같습니다.
-
-**Amazon AMI:**
-
-```bash
-Red Hat Enterprise Linux 8.4.0 (HVM) - ami-054965c6cd7c6e462  (64-bit)
-Root device type: ebs
-Virtualization type: paravirtual
-Amazon Instance Type: t2.large
-ECUs: 3 vCPU: 2
-Memory: 8.0 GiB
-Storage: 20GB magnetic (Note, SSDs are available, but the labs will use magnetic storage)
-Network performance: moderate
-CloudWatch Monitoring: disabled
-Tenancy: Shared tenancy (multi-tenant hardware)
-Cost: $0.11 per hour
-```
-
-{% hint style="info" %}
-위의 사양은 실제 운영 환경에서 사용할 Couchbase 설치에는 충분하지 않다는 점에 유의하세요!
-
-운영 환경에서는 최소 4\~6개의 CPU 코어와 16GB 이상의 RAM이 필요합니다. 하지만 현재 VM의 사양은 프로토타입 실습 환경에서는 충분합니다.
-
-이 실습에서는 Red Hat Linux(RHEL)를 사용하기로 했는데, 그 이유는 RHEL이 엔터프라이즈급 서버를 대상으로 설계되어 안정적이고 높은 부하를 잘 처리하기 때문입니다. 또한 RHEL은 Couchbase 7.X Enterprise Edition에서 지원되는 운영체제 중 하나입니다.
-{% endhint %}
-
-다음은 Couchbase Server에서 지원되는 OS 플랫폼 링크입니다:
-
-https://docs.couchbase.com/server/current/install/install-platforms.html
-
-
-
-PuTTY 또는 Terminal 창으로 이동하여, 머신의 호스트네임을 확인하세요:
-
-```bash
-[ec2-user@ip-172-31-20-35 ~]$ hostname
-ip-172-31-20-35.us-west-1.compute.internal
-```
-
-참고: 이 호스트네임은 Amazon 내부 네임 서버를 통한 내부용 해석에 사용됩니다.
-
-이 과정에서의 모든 접속은 외부용 ec2-w-x-y-z-.amazon.com 호스트네임을 사용하게 됩니다.
-
-
-
-
-
-root 권한으로 전환한 뒤 호스트네임을 Couchbase01로 변경하세요.
-
-```bash
-[ec2-user@ip-172-31-20-35 ~]\$ sudo -i
-[root@ip-172-31-20-35 ~]\# hostnamectl set-hostname Couchbase01
-[root@ip-172-31-20-35 ~]\# hostnamectl status
-Static hostname: Couchbase01
-Icon name: computer-vm
-Chassis: vm
-Machine ID: 80efbea85b654c408ee6bdf762386b7c
-Boot ID: 8732f73604214f2dab2bc0d4be8738fb
-Virtualization: xen
-Operating System: Red Hat Enterprise Linux 8.4 (Ootpa)
-CPE OS Name: cpe:/o:redhat:enterprise_linux:8.4:GA
-Kernel: Linux 4.18.0-305.el8_0.x86_64
-Architecture: x86-64
-[root@ip-172-31-20-35 ~]\# exit
-logout
-[ec2-user@ip-172-31-20-35 ~]\$
-```
-
+• Couchbase 자료 아카이브에서 최신 NoSQL 리소스 얻기:\
+https://www.couchbase.com/resources\
 \
-
-
-그 다음, PuTTY 창을 닫고 새 창을 열어 호스트네임이 변경되었는지 확인합니다.
-
-
-
-총 RAM과 사용 중인 RAM만 확인하세요.
-
-(이는 VM이 실행된 시간에 따라 환경마다 다를 수 있습니다.)
-
-```bash
-[ec2-user@Couchbase01 ~]$ free -mh
-```
-
-출력:
-
-```
-              total        used        free      shared  buff/cache   available
-Mem:          7.6Gi       168Mi       6.5Gi        48Mi       932Mi     7.2Gi
-Swap:            0B          0B          0B
-```
-
-
-
-디스크 용량을 확인하세요:
-
-```bash
-[ec2-user@Couchbase01 ~]$ sudo fdisk -l
-```
-
+• 다양한 무료 온라인 교육:\
+http://training.couchbase.com\
 \
-출력:
-
-```bash
-Disk /dev/xvda: 20 GiB, 21474836480 bytes, 41943040 sectors
-Units: sectors of 1 * 512 = 512 bytes
-Sector size (logical/physical): 512 bytes / 512 bytes
-I/O size (minimum/optimal): 512 bytes / 512 bytes
-Disklabel type: gpt
-Disk identifier: 0xe6e324f2
-
-Device     Boot Start      End  Sectors Size Id Type
-/dev/xvda1       2048     4095     2048   1M 83 BIOS boot
-/dev/xvda2 *     4096 41943006 41938911  20G 83 Linux
-```
-
-
-
-서버에서 약 20.0\~30.0GB 크기의 데이터 디스크가 표시되는지 확인하세요 (강사가 더 큰 용량을 할당했을 수도 있으며, “Size” 열에서 확인 가능합니다).
-
-
-
-VM에 어떤 파일 시스템이 존재하는지도 확인하세요:
-
-```bash
-[ec2-user@Couchbase01 ~]$ df –Th
-```
-
-출력:
-
-```
-Filesystem     Type      Size  Used Avail Use% Mounted on
-devtmpfs       devtmpfs  1.9G     0  1.9G   0% /dev
-tmpfs          tmpfs     1.9G     0  1.9G   0% /dev/shm
-tmpfs          tmpfs     1.9G   17M  1.9G   1% /run
-tmpfs          tmpfs     1.9G     0  1.9G   0% /sys/fs/cgroup
-/dev/xvda2     xfs        20G  1.2G   19G   6% /
-tmpfs          tmpfs     378M     0  378M   0% /run/user/1000
-```
-
-
-
-메인 파일 시스템은 /dev/xvda2이며, 타입은 “xfs”, 크기는 20GB, 사용 중인 공간은 1.2GB임을 확인하세요.
-
+• Couchbase 커뮤니티에서 공유된 프레젠테이션 및 슬라이드:\
+https://connectondemand.couchbase.com\
 \
-
-
-이번 실습에서는 Couchbase 데이터 파일과 인덱스 파일을 모두 이 단일 디스크에 배치할 것입니다.
-
-그러나 운영 환경에서는 여러 디스크에 3개의 개별 볼륨을 구성하는 것이 권장됩니다:
-
-* Linux OS용 볼륨 1개
-* 데이터 파일용, 버킷당 디스크 그룹 1개
-* 인덱스 파일용, 인덱스당 디스크 그룹 1개
-
-비용 및 시간 제약으로 인해, 이번 실습에서는 이 세 가지를 모두 하나의 볼륨에 두겠습니다.
-
-
-
-
-
-### Couchbase를 위한 모범 사례 적용:
-
-
-
-#### 1. Swappiness 비활성화
-
-Swappiness 수준은 Linux 가상 메모리 서브시스템이 디스크로 스왑을 얼마나 시도할지를 결정합니다. 문제는 시스템에 RAM이 충분히 있음에도 불구하고 메모리에 있는 항목을 디스크로 스왑하려고 한다는 점입니다.
-
-
-
-현재 VM에 설정된 값을 확인하려면 다음을 실행하세요:
-
-```
-[ec2-user@Couchbase01 ~]$ cat /proc/sys/vm/swappiness
-30
-```
-
-{% hint style="info" %}
-The default setting of `30` is a bit aggressive. The value of 30 is a percentage; the higher the percentage, the higher the I/O cache and the faster that pages are swapped. You can gain performance by setting the swappiness value to 0. This tells the virtual memory subsystem of the OS to not swap items from RAM to disk unless it absolutely has to. A setting of 100 would have meant that programs will be swapped to disk almost immediately. If you have sized your nodes correctly, swapping should not be needed.
-{% endhint %}
-
-
-
-실행 중인 시스템에서 스와핑을 끄되, 먼저 root 사용자로 전환하세요:
-
-```bash
-[ec2-user@Couchbase01~]$ sudo -s
-[root@Couchbase01 ec2-user ~] echo 0 > /proc/sys/vm/swappiness
-```
-
-
-
-그 다음, sysctl.conf 파일에서 이 변경 사항을 영구적으로 적용하여 재부팅 후에도 설정이 유지되도록 합니다 (재부팅은 하지 마세요!).
-
-이후 root 사용자 모드를 종료하세요.
-
-{% hint style="info" %}
-이 모든 echo 명령어는 한 줄에 입력해야 하며, CMD 프롬프트에서 두 줄로 나누어 입력하지 마세요!
-{% endhint %}
-
-```bash
-[root@couchbase01 ec2-user] echo '' >> /etc/sysctl.conf
-
-[root@couchbase01 ec2-user] echo '#Set swappiness to 0 to avoid swapping' >> /etc/sysctl.conf
-
-[root@couchbase01 ec2-user] echo 'vm.swappiness = 0' >> /etc/sysctl.conf
-```
-
-
-
-
-
-#### 2. Transparent Huge Pages 비활성화
-
-운영 환경의 Couchbase 클러스터에서는 각 노드에서 Transparent Huge Pages를 비활성화하는 것이 매우 중요합니다.&#x20;
-
-(명령어는 반드시 한 줄로 입력해야 함을 기억하세요)
-
-```
-# Disable THP on a running system
-[root@Couchbase01 ec2-user]  echo never > /sys/kernel/mm/transparent_hugepage/enabled
-[root@Couchbase01 ec2-user]  echo never > /sys/kernel/mm/transparent_hugepage/defrag
-```
-
-
-
+• Couchbase 최신 기술 동향을 다루는 공식 블로그:\
+http://blog.couchbase.com\
+\
+• Couchbase 커뮤니티 웹사이트 (기술 질문 게시 가능):\
+http://www.couchbase.com/open-source
