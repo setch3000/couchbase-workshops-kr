@@ -109,7 +109,231 @@ Mac에서 로그인하는 방법에 대한 공식 가이드는 다음 링크에�
 
 
 
+### 첫 번째 Amazon 서버 살펴보기:
 
+방금 실행한 Couchbase 서버 VM의 사양은 다음과 같습니다.
+
+**Amazon AMI:**
+
+```bash
+Red Hat Enterprise Linux 8.4.0 (HVM) - ami-054965c6cd7c6e462  (64-bit)
+Root device type: ebs
+Virtualization type: paravirtual
+Amazon Instance Type: t2.large
+ECUs: 3 vCPU: 2
+Memory: 8.0 GiB
+Storage: 20GB magnetic (Note, SSDs are available, but the labs will use magnetic storage)
+Network performance: moderate
+CloudWatch Monitoring: disabled
+Tenancy: Shared tenancy (multi-tenant hardware)
+Cost: $0.11 per hour
+```
+
+{% hint style="info" %}
+위의 사양은 실제 운영 환경에서 사용할 Couchbase 설치에는 충분하지 않다는 점에 유의하세요!
+
+운영 환경에서는 최소 4\~6개의 CPU 코어와 16GB 이상의 RAM이 필요합니다. 하지만 현재 VM의 사양은 프로토타입 실습 환경에서는 충분합니다.
+
+이 실습에서는 Red Hat Linux(RHEL)를 사용하기로 했는데, 그 이유는 RHEL이 엔터프라이즈급 서버를 대상으로 설계되어 안정적이고 높은 부하를 잘 처리하기 때문입니다. 또한 RHEL은 Couchbase 7.X Enterprise Edition에서 지원되는 운영체제 중 하나입니다.
+{% endhint %}
+
+다음은 Couchbase Server에서 지원되는 OS 플랫폼 링크입니다:
+
+https://docs.couchbase.com/server/current/install/install-platforms.html
+
+
+
+PuTTY 또는 Terminal 창으로 이동하여, 머신의 호스트네임을 확인하세요:
+
+```bash
+[ec2-user@ip-172-31-20-35 ~]$ hostname
+ip-172-31-20-35.us-west-1.compute.internal
+```
+
+참고: 이 호스트네임은 Amazon 내부 네임 서버를 통한 내부용 해석에 사용됩니다.
+
+이 과정에서의 모든 접속은 외부용 ec2-w-x-y-z-.amazon.com 호스트네임을 사용하게 됩니다.
+
+
+
+
+
+root 권한으로 전환한 뒤 호스트네임을 Couchbase01로 변경하세요.
+
+```bash
+[ec2-user@ip-172-31-20-35 ~]\$ sudo -i
+[root@ip-172-31-20-35 ~]\# hostnamectl set-hostname Couchbase01
+[root@ip-172-31-20-35 ~]\# hostnamectl status
+Static hostname: Couchbase01
+Icon name: computer-vm
+Chassis: vm
+Machine ID: 80efbea85b654c408ee6bdf762386b7c
+Boot ID: 8732f73604214f2dab2bc0d4be8738fb
+Virtualization: xen
+Operating System: Red Hat Enterprise Linux 8.4 (Ootpa)
+CPE OS Name: cpe:/o:redhat:enterprise_linux:8.4:GA
+Kernel: Linux 4.18.0-305.el8_0.x86_64
+Architecture: x86-64
+[root@ip-172-31-20-35 ~]\# exit
+logout
+[ec2-user@ip-172-31-20-35 ~]\$
+```
+
+\
+
+
+그 다음, PuTTY 창을 닫고 새 창을 열어 호스트네임이 변경되었는지 확인합니다.
+
+
+
+총 RAM과 사용 중인 RAM만 확인하세요.
+
+(이는 VM이 실행된 시간에 따라 환경마다 다를 수 있습니다.)
+
+```bash
+[ec2-user@Couchbase01 ~]$ free -mh
+```
+
+출력:
+
+```
+              total        used        free      shared  buff/cache   available
+Mem:          7.6Gi       168Mi       6.5Gi        48Mi       932Mi     7.2Gi
+Swap:            0B          0B          0B
+```
+
+
+
+디스크 용량을 확인하세요:
+
+```bash
+[ec2-user@Couchbase01 ~]$ sudo fdisk -l
+```
+
+\
+출력:
+
+```bash
+Disk /dev/xvda: 20 GiB, 21474836480 bytes, 41943040 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: gpt
+Disk identifier: 0xe6e324f2
+
+Device     Boot Start      End  Sectors Size Id Type
+/dev/xvda1       2048     4095     2048   1M 83 BIOS boot
+/dev/xvda2 *     4096 41943006 41938911  20G 83 Linux
+```
+
+
+
+서버에서 약 20.0\~30.0GB 크기의 데이터 디스크가 표시되는지 확인하세요 (강사가 더 큰 용량을 할당했을 수도 있으며, “Size” 열에서 확인 가능합니다).
+
+
+
+VM에 어떤 파일 시스템이 존재하는지도 확인하세요:
+
+```bash
+[ec2-user@Couchbase01 ~]$ df –Th
+```
+
+출력:
+
+```
+Filesystem     Type      Size  Used Avail Use% Mounted on
+devtmpfs       devtmpfs  1.9G     0  1.9G   0% /dev
+tmpfs          tmpfs     1.9G     0  1.9G   0% /dev/shm
+tmpfs          tmpfs     1.9G   17M  1.9G   1% /run
+tmpfs          tmpfs     1.9G     0  1.9G   0% /sys/fs/cgroup
+/dev/xvda2     xfs        20G  1.2G   19G   6% /
+tmpfs          tmpfs     378M     0  378M   0% /run/user/1000
+```
+
+
+
+메인 파일 시스템은 /dev/xvda2이며, 타입은 “xfs”, 크기는 20GB, 사용 중인 공간은 1.2GB임을 확인하세요.
+
+\
+
+
+이번 실습에서는 Couchbase 데이터 파일과 인덱스 파일을 모두 이 단일 디스크에 배치할 것입니다.
+
+그러나 운영 환경에서는 여러 디스크에 3개의 개별 볼륨을 구성하는 것이 권장됩니다:
+
+* Linux OS용 볼륨 1개
+* 데이터 파일용, 버킷당 디스크 그룹 1개
+* 인덱스 파일용, 인덱스당 디스크 그룹 1개
+
+비용 및 시간 제약으로 인해, 이번 실습에서는 이 세 가지를 모두 하나의 볼륨에 두겠습니다.
+
+
+
+
+
+### Couchbase를 위한 모범 사례 적용:
+
+
+
+#### 1. Swappiness 비활성화
+
+Swappiness 수준은 Linux 가상 메모리 서브시스템이 디스크로 스왑을 얼마나 시도할지를 결정합니다. 문제는 시스템에 RAM이 충분히 있음에도 불구하고 메모리에 있는 항목을 디스크로 스왑하려고 한다는 점입니다.
+
+
+
+현재 VM에 설정된 값을 확인하려면 다음을 실행하세요:
+
+```
+[ec2-user@Couchbase01 ~]$ cat /proc/sys/vm/swappiness
+30
+```
+
+{% hint style="info" %}
+The default setting of `30` is a bit aggressive. The value of 30 is a percentage; the higher the percentage, the higher the I/O cache and the faster that pages are swapped. You can gain performance by setting the swappiness value to 0. This tells the virtual memory subsystem of the OS to not swap items from RAM to disk unless it absolutely has to. A setting of 100 would have meant that programs will be swapped to disk almost immediately. If you have sized your nodes correctly, swapping should not be needed.
+{% endhint %}
+
+
+
+실행 중인 시스템에서 스와핑을 끄되, 먼저 root 사용자로 전환하세요:
+
+```bash
+[ec2-user@Couchbase01~]$ sudo -s
+[root@Couchbase01 ec2-user ~] echo 0 > /proc/sys/vm/swappiness
+```
+
+
+
+그 다음, sysctl.conf 파일에서 이 변경 사항을 영구적으로 적용하여 재부팅 후에도 설정이 유지되도록 합니다 (재부팅은 하지 마세요!).
+
+이후 root 사용자 모드를 종료하세요.
+
+{% hint style="info" %}
+이 모든 echo 명령어는 한 줄에 입력해야 하며, CMD 프롬프트에서 두 줄로 나누어 입력하지 마세요!
+{% endhint %}
+
+```bash
+[root@couchbase01 ec2-user] echo '' >> /etc/sysctl.conf
+
+[root@couchbase01 ec2-user] echo '#Set swappiness to 0 to avoid swapping' >> /etc/sysctl.conf
+
+[root@couchbase01 ec2-user] echo 'vm.swappiness = 0' >> /etc/sysctl.conf
+```
+
+
+
+
+
+#### 2. Transparent Huge Pages 비활성화
+
+운영 환경의 Couchbase 클러스터에서는 각 노드에서 Transparent Huge Pages를 비활성화하는 것이 매우 중요합니다.&#x20;
+
+(명령어는 반드시 한 줄로 입력해야 함을 기억하세요)
+
+```
+# Disable THP on a running system
+[root@Couchbase01 ec2-user]  echo never > /sys/kernel/mm/transparent_hugepage/enabled
+[root@Couchbase01 ec2-user]  echo never > /sys/kernel/mm/transparent_hugepage/defrag
+```
 
 
 
